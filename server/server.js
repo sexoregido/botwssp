@@ -32,45 +32,42 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
-// Configurar WhatsApp client
+// Configurar WhatsApp client con opciones específicas para Docker
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        args: ['--no-sandbox']
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu'
+        ],
+        headless: true
     }
 });
 
-// Manejar generación de QR
+// Modificar el evento QR para más información
 client.on('qr', async (qr) => {
-    try {
-        // Usar path.join para crear rutas compatibles con Windows
-        const qrPath = path.join(__dirname, '..', 'qr-code.png');
-        
-        // Generar el QR y guardarlo
-        await qrcode.toFile(qrPath, qr, {
-            color: {
-                dark: '#000',
-                light: '#FFF'
-            },
-            width: 1000,
-            margin: 1
-        });
-
-        // Guardar para la ruta web
-        lastQR = await qrcode.toDataURL(qr);
-        
-        console.log('='.repeat(50));
-        console.log(`QR guardado en: ${qrPath}`);
-        console.log('QR disponible en: http://localhost:3000/qr');
-        console.log('='.repeat(50));
-    } catch (error) {
-        console.error('Error al generar QR:', error);
-    }
+    console.log('='.repeat(50));
+    console.log('Nuevo QR Code generado:');
+    qrcode.generate(qr, { small: true });
+    console.log('='.repeat(50));
 });
 
-// Agregar este evento para saber si hay problemas de autenticación
-client.on('auth_failure', (msg) => {
-    console.error('Error de autenticación:', msg);
+// Agregar más eventos para debug
+client.on('loading_screen', (percent, message) => {
+    console.log('LOADING:', percent, message);
+});
+
+client.on('authenticated', () => {
+    console.log('AUTHENTICATED');
+});
+
+client.on('auth_failure', msg => {
+    console.error('AUTHENTICATION FAILURE:', msg);
 });
 
 client.on('ready', () => {
