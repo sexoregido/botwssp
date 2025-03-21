@@ -13,8 +13,9 @@ RUN npm install
 # Copiar el código fuente
 COPY . .
 
-# Dar permisos de escritura al directorio
-RUN chmod -R 777 /usr/src/app
+# Crear directorios y dar permisos
+RUN mkdir -p .wwebjs_auth .wwebjs_cache && \
+    chmod -R 777 .wwebjs_auth .wwebjs_cache
 
 # Exponer el puerto
 EXPOSE 3000
