@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+.wwebjs_auth/
+.wwebjs_cache/
+qr-code.png
+
+# Chromium files
+**/.local-chromium/
+*.dll
+*.exe
+
+# Environment
+.env
+.env.local
+
+# Docker
+.docker
