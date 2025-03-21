@@ -36,6 +36,7 @@ const openai = new OpenAI({
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
+        executablePath: '/usr/bin/chromium',
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -45,16 +46,18 @@ const client = new Client({
             '--no-zygote',
             '--disable-gpu'
         ],
-        headless: true
+        headless: 'new'
     }
 });
 
+// Agregar más logs
+console.log('Iniciando WhatsApp bot...');
+
 // Modificar el evento QR para más información
 client.on('qr', async (qr) => {
-    console.log('='.repeat(50));
-    console.log('Nuevo QR Code generado:');
+    console.log('\n\n=== ESCANEA ESTE CÓDIGO QR EN WHATSAPP ===\n');
     qrcode.generate(qr, { small: true });
-    console.log('='.repeat(50));
+    console.log('\n=========================================\n');
 });
 
 // Agregar más eventos para debug

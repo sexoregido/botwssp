@@ -11,9 +11,9 @@ services:
       - ./.wwebjs_auth:/usr/src/app/.wwebjs_auth
       - ./.wwebjs_cache:/usr/src/app/.wwebjs_cache
     env_file:
-      - .env.local
+      - .env
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - NODE_ENV=development
     restart: unless-stopped
     tty: true
     stdin_open: true
