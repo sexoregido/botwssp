@@ -48,7 +48,10 @@ COPY . .
 
 # Crear directorios y dar permisos
 RUN mkdir -p .wwebjs_auth .wwebjs_cache && \
+    chown -R node:node /usr/src/app && \
     chmod -R 777 .wwebjs_auth .wwebjs_cache
+
+USER node
 
 # Exponer el puerto
 EXPOSE 3000

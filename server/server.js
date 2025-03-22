@@ -2,7 +2,7 @@ require('dotenv').config({ path: '.env.local' });
 const express = require('express');
 const { OpenAI } = require('openai');
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode');
+const qrcode = require('qrcode-terminal');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -54,7 +54,7 @@ const client = new Client({
 console.log('Iniciando WhatsApp bot...');
 
 // Modificar el evento QR para más información
-client.on('qr', async (qr) => {
+client.on('qr', (qr) => {
     console.log('\n\n=== ESCANEA ESTE CÓDIGO QR EN WHATSAPP ===\n');
     qrcode.generate(qr, { small: true });
     console.log('\n=========================================\n');
