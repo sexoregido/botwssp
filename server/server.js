@@ -9,6 +9,22 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
+// Función para crear directorios necesarios
+async function crearDirectoriosNecesarios() {
+    const directorioAuth = path.join(process.cwd(), 'whatsapp-auth');
+    try {
+        await fs.mkdir(directorioAuth, { recursive: true });
+        // En sistemas Unix/Linux, establecer permisos 777 para pruebas
+        // En producción, deberías usar permisos más restrictivos
+        if (process.platform !== 'win32') {
+            await fs.chmod(directorioAuth, 0o777);
+        }
+        console.log('✅ Directorios de autenticación creados correctamente');
+    } catch (error) {
+        console.error('Error al crear directorios:', error);
+    }
+}
+
 // Variable para almacenar el último QR
 let lastQR = null;
 
@@ -34,7 +50,9 @@ const openai = new OpenAI({
 
 // Configurar WhatsApp client con opciones específicas para Docker
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({
+        dataPath: './whatsapp-auth'
+    }),
     puppeteer: {
     //    executablePath: '/usr/bin/chromium',
         args: [
@@ -502,12 +520,16 @@ client.on('message', async (message) => {
 });
 
 // Iniciar el cliente de WhatsApp
-client.initialize();
+async function iniciarServidor() {
+    await crearDirectoriosNecesarios();
+    client.initialize();
+    
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Servidor corriendo en puerto ${PORT}`);
+    });
+}
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor corriendo en puerto ${PORT}`);
-});
-
+iniciarServidor().catch(console.error);
 
 // comando para iniciar el servidor: node server/server.js
