@@ -89,19 +89,47 @@ client.on('qr', (qr) => {
 
 // Agregar más eventos para debug
 client.on('loading_screen', (percent, message) => {
-    console.log('LOADING:', percent, message);
+    console.log('🔄 LOADING:', percent, message);
 });
 
 client.on('authenticated', () => {
-    console.log('AUTHENTICATED');
+    console.log('🔐 AUTHENTICATED - Bot listo para recibir mensajes');
 });
 
 client.on('auth_failure', msg => {
-    console.error('AUTHENTICATION FAILURE:', msg);
+    console.error('❌ AUTHENTICATION FAILURE:', msg);
 });
 
 client.on('ready', () => {
-    console.log('Cliente de WhatsApp está listo!');
+    console.log('✅ Cliente de WhatsApp está listo y escuchando mensajes!');
+});
+
+client.on('disconnected', (reason) => {
+    console.log('❌ Cliente desconectado:', reason);
+});
+
+client.on('change_state', state => {
+    console.log('🔄 Estado del cliente cambiado a:', state);
+});
+
+client.on('change_battery', batteryInfo => {
+    console.log('🔋 Estado de batería:', batteryInfo);
+});
+
+// Evento para mensajes entrantes (raw)
+client.on('message_create', (msg) => {
+    console.log('📝 Mensaje creado (raw):', {
+        de: msg.from,
+        para: msg.to,
+        tipo: msg.type,
+        contenido: msg.body,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Evento para errores generales del cliente
+client.on('error', error => {
+    console.error('❌ Error en el cliente:', error);
 });
 
 // Agregar esta función después de las configuraciones iniciales
@@ -325,13 +353,24 @@ function puedeEnviarMensaje(chatId) {
 
 // Manejar mensajes entrantes de WhatsApp
 client.on('message', async (message) => {
-    console.log('Mensaje recibido raw:', message);
     try {
-        console.log('📩 Mensaje recibido:', {
-            de: message.from,
-            contenido: message.body,
-            esGrupo: message.isGroupMsg
+        // Log completo del mensaje
+        console.log('📨 Mensaje completo recibido:', {
+            id: message.id,
+            from: message.from,
+            to: message.to,
+            body: message.body,
+            type: message.type,
+            timestamp: message.timestamp,
+            isGroup: message.isGroupMsg,
+            hasMedia: message.hasMedia
         });
+
+        // Si es un mensaje de estado o broadcast, ignorarlo
+        if (message.from === 'status@broadcast') {
+            console.log('📢 Ignorando mensaje de broadcast');
+            return;
+        }
 
         if (!message.isGroupMsg) {
             // Prevenir mensajes duplicados
@@ -542,6 +581,15 @@ client.on('message', async (message) => {
             "3️⃣ Adquirir un servicio\n" +
             "4️⃣ Hablar con una persona");
     }
+});
+
+// Manejadores de proceso para errores no manejados
+process.on('uncaughtException', (error) => {
+    console.error('❌ Error no manejado:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Promesa rechazada no manejada:', reason);
 });
 
 // Iniciar el cliente de WhatsApp
