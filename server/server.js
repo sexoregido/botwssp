@@ -36,7 +36,7 @@ const openai = new OpenAI({
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        executablePath: '/usr/bin/chromium',
+    //    executablePath: '/usr/bin/chromium',
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -87,6 +87,8 @@ const randomDelay = () => {
 // Agregar después de las configuraciones iniciales
 const clientesConPersona = new Set(); // Almacena los números que están siendo atendidos por personas
 const timeouts = new Map(); // Almacena los timeouts de cada cliente
+const mensajesBot = new Set(); // Para rastrear los mensajes enviados por el bot
+const conversacionesActivas = new Map(); // Almacena los participantes de cada chat
 
 // Función para manejar el timeout
 const configurarTimeout = (numeroCliente) => {
@@ -120,22 +122,225 @@ const configurarTimeout = (numeroCliente) => {
     timeouts.set(numeroCliente, timeout);
 };
 
+// Función para verificar si un mensaje es de un tercero
+const esMensajeDeTercero = async (message) => {
+    try {
+        const chatId = message.from;
+        
+        // Si no tenemos registro de esta conversación, la inicializamos
+        if (!conversacionesActivas.has(chatId)) {
+            conversacionesActivas.set(chatId, new Set());
+        }
+
+        const participantes = conversacionesActivas.get(chatId);
+        const remitente = message.author || message.from;
+        
+        // Si el mensaje no es del cliente original y hay participantes previos
+        if (!participantes.has(remitente) && participantes.size > 0) {
+            console.log(`Nuevo participante detectado en el chat ${chatId}: ${remitente}`);
+            clientesConPersona.add(chatId);
+            await client.sendMessage(chatId, 
+                "Ha sido un gusto atenderte, ahora serás atendido por una persona. Sigamos siempre conectados con Conect@T A&D");
+            return true;
+        }
+
+        // Agregar el participante al set
+        participantes.add(remitente);
+        return false;
+    } catch (error) {
+        console.error('Error al verificar mensaje de tercero:', error);
+        return false;
+    }
+};
+
+// Mapa para rastrear el contexto de las conversaciones
+const contextosConversacion = new Map();
+
+// Función para obtener una respuesta contextual para problemas técnicos
+async function obtenerRespuestaProblemasTecnicos(message, mensajeTexto) {
+    const chatId = message.from;
+    const contexto = contextosConversacion.get(chatId) || { contador: 0, ultimoProblema: '' };
+    
+    // Detectar tipo de problema
+    const esProblemaVelocidad = mensajeTexto.toLowerCase().includes('mb') || 
+                               mensajeTexto.toLowerCase().includes('mega') ||
+                               mensajeTexto.toLowerCase().includes('velocidad') ||
+                               /\d+\s*mb/.test(mensajeTexto.toLowerCase());
+    
+    const esProblemaTv = mensajeTexto.toLowerCase().includes('television') || 
+                        mensajeTexto.toLowerCase().includes('tv') ||
+                        mensajeTexto.toLowerCase().includes('canal') ||
+                        (mensajeTexto.toLowerCase().includes('señal') && !mensajeTexto.toLowerCase().includes('internet'));
+
+    // Detectar frustración
+    const hayFrustracion = mensajeTexto.toLowerCase().includes('siempre') ||
+                          mensajeTexto.toLowerCase().includes('lo mismo') ||
+                          mensajeTexto.toLowerCase().includes('necesito ayuda') ||
+                          contexto.contador >= 2;
+
+    let respuesta = '';
+
+    if (hayFrustracion || contexto.contador >= 2) {
+        respuesta = "Entiendo tu frustración y veo que necesitas ayuda más específica. " +
+                   "Te sugiero usar la opción 4️⃣ para hablar directamente con nuestro equipo técnico que podrá ayudarte mejor con este problema.";
+        clientesConPersona.add(chatId);
+    } else if (esProblemaVelocidad) {
+        respuesta = "Entiendo que estás teniendo problemas con la velocidad de tu internet. " +
+                   "Este tipo de situación requiere una revisión técnica para verificar tu conexión y asegurar que recibas la velocidad contratada. " +
+                   "Te sugiero usar la opción 4️⃣ para que nuestro equipo técnico pueda realizar las pruebas necesarias y solucionar tu problema.";
+        clientesConPersona.add(chatId);
+    } else if (esProblemaTv && contexto.ultimoProblema !== 'tv') {
+        respuesta = "Entiendo que tienes problemas con la señal de televisión. " +
+                   "¿Podrías decirme si todos los televisores están afectados o solo uno en particular? " +
+                   "También sería útil saber si la pantalla está completamente negra o si aparece algún mensaje de error.";
+        contexto.ultimoProblema = 'tv';
+    } else if (contexto.contador === 0) {
+        respuesta = "¡Hola! Lamento que estés teniendo problemas con el servicio 😔. " +
+                   "¿Podrías especificar qué tipo de problema estás experimentando? " +
+                   "¿Es con el internet, la televisión o ambos?";
+    } else {
+        respuesta = "Entiendo. Para poder ayudarte mejor con este problema específico, " +
+                   "te sugiero usar la opción 4️⃣ para hablar directamente con nuestro equipo técnico.";
+        clientesConPersona.add(chatId);
+    }
+
+    contexto.contador++;
+    contextosConversacion.set(chatId, contexto);
+    return respuesta;
+}
+
+// Función para detectar si se necesita intervención humana
+async function necesitaIntervencionHumana(mensajeTexto) {
+    const respuesta = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+            {
+                role: 'system',
+                content: `Analiza si el mensaje del usuario indica frustración, confusión, o si la consulta es demasiado compleja para un bot.
+Responde únicamente con "true" si se necesita intervención humana o "false" si el bot puede manejar la situación.
+Considera como señales de necesidad de intervención humana:
+- Frustración o enojo en el mensaje
+- Preguntas muy específicas sobre problemas técnicos
+- Solicitudes que requieren acceso a sistemas o información personal
+- Mensajes que indican que el bot no está entendiendo la consulta
+- Múltiples preguntas en un solo mensaje que son difíciles de manejar`
+            },
+            {
+                role: 'user',
+                content: mensajeTexto
+            }
+        ],
+        temperature: 0.1
+    });
+
+    return respuesta.choices[0].message.content.trim().toLowerCase() === 'true';
+}
+
+// Función para clasificar la intención del mensaje
+async function clasificarIntencion(mensajeTexto) {
+    const respuesta = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+            {
+                role: 'system',
+                content: `Tu tarea es analizar el contenido de un mensaje y clasificarlo únicamente en una de las siguientes categorías:
+1. pago_recibido
+2. reporte_servicio
+3. duda_general
+4. nuevo_cliente
+5. conversacion_no_clasificada
+6. problema_tecnico
+
+Responde únicamente con la categoría en minúsculas y sin ningún otro texto.
+Usa 'problema_tecnico' cuando el usuario menciona problemas con internet, señal, conexión o servicio.`
+            },
+            {
+                role: 'user',
+                content: mensajeTexto
+            }
+        ]
+    });
+
+    return respuesta.choices[0].message.content.trim();
+}
+
+// Función para enviar mensaje con delay
+async function enviarMensajeConDelay(chatId, mensaje) {
+    await randomDelay();
+    const response = await client.sendMessage(chatId, mensaje);
+    mensajesBot.add(response.id._serialized);
+    return response;
+}
+
+// Mapa para controlar el tiempo entre mensajes
+const ultimoMensaje = new Map();
+
+// Función para evitar mensajes duplicados
+function puedeEnviarMensaje(chatId) {
+    const ahora = Date.now();
+    const ultimoTiempo = ultimoMensaje.get(chatId) || 0;
+    
+    // Prevenir mensajes más frecuentes que 2 segundos
+    if (ahora - ultimoTiempo < 2000) {
+        return false;
+    }
+    
+    ultimoMensaje.set(chatId, ahora);
+    return true;
+}
+
 // Manejar mensajes entrantes de WhatsApp
 client.on('message', async (message) => {
     try {
         if (!message.isGroupMsg) {
-            // Resetear el timeout si hay actividad en el chat
+            // Prevenir mensajes duplicados
+            if (!puedeEnviarMensaje(message.from)) {
+                return;
+            }
+
+            // Si el mensaje es del operador humano (desde el mismo número)
+            if (message.fromMe) {
+                clientesConPersona.add(message.to);
+                await enviarMensajeConDelay(message.to, 
+                    "Ha sido un gusto atenderte, ahora serás atendido por una persona. Sigamos siempre conectados con Conect@T A&D");
+                return;
+            }
+
+            // Verificar si es un mensaje de un tercero (operador desde WhatsApp)
+            if (await esMensajeDeTercero(message)) {
+                console.log('Mensaje detectado de operador desde WhatsApp. Desactivando bot para este chat.');
+                return;
+            }
+
+            // Verificar si el chat está siendo atendido por una persona
             if (clientesConPersona.has(message.from)) {
-                configurarTimeout(message.from);
                 return; // No responder si está siendo atendido por una persona
+            }
+
+            // Verificar si se necesita intervención humana
+            if (await necesitaIntervencionHumana(message.body)) {
+                await enviarMensajeConDelay(message.from, 
+                    "Entiendo que tu consulta puede requerir una atención más personalizada. " +
+                    "Te sugiero usar la opción 4️⃣ para hablar directamente con una persona que podrá ayudarte mejor.\n\n" +
+                    "Solo escribe '4' y te conectaré con un asesor 😊");
+                return;
+            }
+
+            // Verificar si el mensaje contiene medios
+            if (message.hasMedia) {
+                const media = await message.downloadMedia();
+                if (media && media.mimetype.includes("image")) {
+                    await enviarMensajeConDelay(message.from, 
+                        "¡Gracias por enviar la imagen! Si es un comprobante, será revisado a la brevedad. De no ser así, cuéntame en qué puedo ayudarte 😊");
+                    return;
+                }
             }
 
             const mensajeLower = message.body.toLowerCase();
 
             // Mensaje de bienvenida/menú para el primer mensaje
             if (mensajeLower === 'hola' || mensajeLower === 'menu' || mensajeLower === 'inicio') {
-                await randomDelay();
-                await message.reply(
+                await enviarMensajeConDelay(message.from,
                     "¡Hola! soy Conectín y estoy aquí para poder ayudarte 😊 elige una de las opciones:\n\n" +
                     "1️⃣ Planes y precios disponibles\n" +
                     "2️⃣ Lugares con cobertura\n" +
@@ -147,8 +352,7 @@ client.on('message', async (message) => {
 
             // Verificar respuesta sobre áreas específicas
             if (mensajeLower.startsWith('s') && mensajeLower.replace('í','i').match(/^si+$/)) {
-                await randomDelay();
-                await message.reply(
+                await enviarMensajeConDelay(message.from,
                     "Claro, acá te dejo el detalle:\n\n" +
                     "📍 San José Poaquil:\n" +
                     "- Saquitacaj\n" +
@@ -169,35 +373,18 @@ client.on('message', async (message) => {
             }
 
             if (mensajeLower === 'no') {
-                await randomDelay();
-                await message.reply("Claro, si necesitas algo adicional con gusto estaré aquí para ayudarte. Sigamos conectados con Conect@T A&D");
+                await enviarMensajeConDelay(message.from, 
+                    "Claro, si necesitas algo adicional con gusto estaré aquí para ayudarte. Sigamos conectados con Conect@T A&D");
                 return;
             }
 
-            // Verificar si el mensaje es sobre cobertura
-            if (mensajeLower.includes('2') || 
-                mensajeLower.includes('lugares') || 
-                mensajeLower.includes('cobertura') || 
-                mensajeLower.includes('que lugares cubren')) {
-                await randomDelay();
-                await message.reply(
-                    "Gracias por tu interés, contamos con cobertura en:\n\n" +
-                    "📍 Area de San José Poaquil Chimaltenango\n" +
-                    "📍 San Juan Comalapa\n" +
-                    "📍 Tecpan Guatemala\n\n" +
-                    "¿Deseas saber áreas específicas de cada municipio? Responde con un SI o NO"
-                );
-                return;
-            }
-
-            // Verificar si el mensaje es sobre planes
-            if (mensajeLower.includes('1') || 
+            // Verificar opciones numeradas y palabras clave específicas
+            if (mensajeLower === '1' || 
                 mensajeLower.includes('planes') || 
                 mensajeLower.includes('precios') || 
                 mensajeLower.includes('disponibles') ||
                 mensajeLower.includes('plan disponible')) {
-                await randomDelay();
-                await message.reply(
+                await enviarMensajeConDelay(message.from,
                     "Con gusto, nuestros planes son los siguientes:\n\n" +
                     "💫 Q150 - 15Mb de velocidad simétricos (si el televisor es smart TV podría optar a recibir 125 canales digitales)\n\n" +
                     "💫 Q200 - 50Mb de velocidad simétricos (64 canales analógicos o 180 canales digitales)\n\n" +
@@ -209,32 +396,62 @@ client.on('message', async (message) => {
                 return;
             }
 
-            // Verificar si quiere hablar con una persona
-            if (mensajeLower.includes('4') ||
+            if (mensajeLower === '2' || 
+                mensajeLower.includes('lugares') || 
+                mensajeLower.includes('cobertura') || 
+                mensajeLower.includes('que lugares cubren')) {
+                await enviarMensajeConDelay(message.from,
+                    "Gracias por tu interés, contamos con cobertura en:\n\n" +
+                    "📍 Area de San José Poaquil Chimaltenango\n" +
+                    "📍 San Juan Comalapa\n" +
+                    "📍 Tecpan Guatemala\n\n" +
+                    "¿Deseas saber áreas específicas de cada municipio? Responde con un SI o NO"
+                );
+                return;
+            }
+
+            if (mensajeLower === '4' ||
                 mensajeLower.includes('hablar con una persona') || 
                 mensajeLower.includes('hablar con persona') || 
                 mensajeLower.includes('persona')) {
-                await randomDelay();
                 clientesConPersona.add(message.from);
-                configurarTimeout(message.from); // Iniciar el timeout
-                await message.reply("Ha sido un gusto atenderte, en breve te atenderá una persona. Sigamos siempre conectados con Conect@T A&D");
+                await enviarMensajeConDelay(message.from, 
+                    "Ha sido un gusto atenderte, en breve te atenderá una persona. Sigamos siempre conectados con Conect@T A&D");
                 return;
             }
 
-            // Verificar si es un mensaje de despedida
-            if (mensajeLower.includes('gracias') || 
-                mensajeLower.includes('adiós') || 
-                mensajeLower.includes('hasta luego') ||
-                mensajeLower.includes('bye') ||
-                mensajeLower.includes('buen día') ||
-                mensajeLower.includes('buenas noches') ||
-                (mensajeLower.includes('ok') && mensajeLower.length < 5)) {
-                await randomDelay();
-                await message.reply("¡Ha sido un placer ayudarte! Si necesitas algo más, no dudes en escribirme. ¡Que tengas un excelente día! 😊\n\nSigamos siempre conectados con Conect@T A&D 💫");
-                return;
+            // Si no es ninguna opción específica, usar el clasificador
+            const intencion = await clasificarIntencion(message.body);
+
+            // Clasificación inteligente según la intención
+            switch (intencion) {
+                case 'pago_recibido':
+                    await enviarMensajeConDelay(message.from, 
+                        "¡Gracias por tu comprobante de pago! En breve será procesado. Si necesitas confirmación, por favor espera unos minutos 😊");
+                    return;
+
+                case 'reporte_servicio':
+                    clientesConPersona.add(message.from);
+                    await enviarMensajeConDelay(message.from, 
+                        "Lamentamos que estés teniendo inconvenientes 😥. Ya derivamos tu mensaje a nuestro equipo de soporte técnico, te responderán lo antes posible.");
+                    return;
+
+                case 'problema_tecnico':
+                    const respuesta = await obtenerRespuestaProblemasTecnicos(message, message.body);
+                    await enviarMensajeConDelay(message.from, respuesta);
+                    return;
+
+                case 'nuevo_cliente':
+                    await enviarMensajeConDelay(message.from, 
+                        "¡Gracias por tu interés en Conect@T A&D! Aquí te dejo las opciones para comenzar:\n\n" +
+                        "1️⃣ Planes y precios disponibles\n" +
+                        "2️⃣ Lugares con cobertura\n" +
+                        "3️⃣ Adquirir un servicio\n" +
+                        "4️⃣ Hablar con una persona");
+                    return;
             }
 
-            // Si no es ninguna de las opciones anteriores, usar OpenAI
+            // Si llegamos aquí, usar OpenAI para una respuesta personalizada
             const response = await openai.chat.completions.create({
                 model: "gpt-3.5-turbo",
                 messages: [
@@ -261,15 +478,14 @@ Para el resto de respuestas, sé creativo y natural, manteniendo la esencia de l
                     },
                     { role: "user", content: message.body }
                 ],
-                temperature: 0.8, // Aumentamos ligeramente la temperatura para más creatividad
+                temperature: 0.8,
             });
 
-            await randomDelay();
-            await message.reply(response.choices[0].message.content);
+            await enviarMensajeConDelay(message.from, response.choices[0].message.content);
         }
     } catch (error) {
         console.error('Error:', error);
-        message.reply('Lo siento, hubo un error al procesar tu mensaje.');
+        await enviarMensajeConDelay(message.from, 'Lo siento, hubo un error al procesar tu mensaje.');
     }
 });
 
@@ -277,7 +493,7 @@ Para el resto de respuestas, sé creativo y natural, manteniendo la esencia de l
 client.on('message', async (message) => {
     if (message.body.toLowerCase() === '!activarbot' && clientesConPersona.has(message.from)) {
         clientesConPersona.delete(message.from);
-        await message.reply("¡Hola! Soy Conectín nuevamente a tu servicio 😊 ¿En qué puedo ayudarte?\n\n" +
+        await client.sendMessage(message.from, "¡Hola! Soy Conectín nuevamente a tu servicio 😊 ¿En qué puedo ayudarte?\n\n" +
             "1️⃣ Planes y precios disponibles\n" +
             "2️⃣ Lugares con cobertura\n" +
             "3️⃣ Adquirir un servicio\n" +
