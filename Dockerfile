@@ -40,6 +40,9 @@ WORKDIR /usr/src/app
 # Copiar package.json y package-lock.json
 COPY package*.json ./
 
+# Copiar el archivo .env.local si existe
+COPY .env.local* ./
+
 # Instalar dependencias
 RUN npm install
 
@@ -47,9 +50,10 @@ RUN npm install
 COPY . .
 
 # Crear directorios y dar permisos
-RUN mkdir -p .wwebjs_auth .wwebjs_cache && \
+RUN mkdir -p .wwebjs_auth .wwebjs_cache whatsapp-auth && \
     chown -R node:node /usr/src/app && \
-    chmod -R 777 .wwebjs_auth .wwebjs_cache
+    chmod -R 777 .wwebjs_auth .wwebjs_cache whatsapp-auth && \
+    chmod 600 .env.local || true  # El || true evita errores si el archivo no existe
 
 USER node
 

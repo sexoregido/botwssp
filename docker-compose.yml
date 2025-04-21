@@ -11,7 +11,7 @@ services:
       - ./.wwebjs_auth:/usr/src/app/.wwebjs_auth
       - ./.wwebjs_cache:/usr/src/app/.wwebjs_cache
     env_file:
-      - .env
+      - .env.local
     environment:
       - NODE_ENV=development
     restart: unless-stopped

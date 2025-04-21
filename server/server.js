@@ -1,4 +1,10 @@
 require('dotenv').config({ path: '.env.local' });
+console.log('📁 Directorio actual:', process.cwd());
+console.log('🔑 Variables de entorno disponibles:', {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY ? '✅ Configurada' : '❌ No configurada',
+    NODE_ENV: process.env.NODE_ENV
+});
+
 const express = require('express');
 const { OpenAI } = require('openai');
 const { Client, LocalAuth } = require('whatsapp-web.js');
@@ -48,10 +54,8 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
-// Verificar configuración de OpenAI
-if (!process.env.OPENAI_API_KEY) {
-    console.error('⚠️ ADVERTENCIA: No se encontró OPENAI_API_KEY en las variables de entorno');
-}
+// Verificar OpenAI
+console.log('OpenAI API Key configurada:', process.env.OPENAI_API_KEY ? '✅ Sí' : '❌ No');
 
 // Configurar WhatsApp client con opciones específicas para Docker
 const client = new Client({
@@ -321,6 +325,7 @@ function puedeEnviarMensaje(chatId) {
 
 // Manejar mensajes entrantes de WhatsApp
 client.on('message', async (message) => {
+    console.log('Mensaje recibido raw:', message);
     try {
         console.log('📩 Mensaje recibido:', {
             de: message.from,
