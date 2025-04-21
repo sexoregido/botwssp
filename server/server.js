@@ -48,6 +48,11 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
+// Verificar configuración de OpenAI
+if (!process.env.OPENAI_API_KEY) {
+    console.error('⚠️ ADVERTENCIA: No se encontró OPENAI_API_KEY en las variables de entorno');
+}
+
 // Configurar WhatsApp client con opciones específicas para Docker
 const client = new Client({
     authStrategy: new LocalAuth({
@@ -284,10 +289,17 @@ Usa 'problema_tecnico' cuando el usuario menciona problemas con internet, señal
 
 // Función para enviar mensaje con delay
 async function enviarMensajeConDelay(chatId, mensaje) {
-    await randomDelay();
-    const response = await client.sendMessage(chatId, mensaje);
-    mensajesBot.add(response.id._serialized);
-    return response;
+    try {
+        console.log('🚀 Intentando enviar mensaje a:', chatId);
+        await randomDelay();
+        const response = await client.sendMessage(chatId, mensaje);
+        mensajesBot.add(response.id._serialized);
+        console.log('✅ Mensaje enviado exitosamente');
+        return response;
+    } catch (error) {
+        console.error('❌ Error al enviar mensaje:', error);
+        throw error;
+    }
 }
 
 // Mapa para controlar el tiempo entre mensajes
@@ -310,9 +322,16 @@ function puedeEnviarMensaje(chatId) {
 // Manejar mensajes entrantes de WhatsApp
 client.on('message', async (message) => {
     try {
+        console.log('📩 Mensaje recibido:', {
+            de: message.from,
+            contenido: message.body,
+            esGrupo: message.isGroupMsg
+        });
+
         if (!message.isGroupMsg) {
             // Prevenir mensajes duplicados
             if (!puedeEnviarMensaje(message.from)) {
+                console.log('⚠️ Mensaje duplicado, ignorando...');
                 return;
             }
 
@@ -440,6 +459,7 @@ client.on('message', async (message) => {
 
             // Si no es ninguna opción específica, usar el clasificador
             const intencion = await clasificarIntencion(message.body);
+            console.log('🤖 Intención clasificada:', intencion);
 
             // Clasificación inteligente según la intención
             switch (intencion) {
