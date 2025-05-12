@@ -116,9 +116,13 @@ console.log('Iniciando WhatsApp bot con configuración:', {
 
 // Modificar el evento QR para más información
 client.on('qr', (qr) => {
+    console.clear(); // Limpiar la consola para mejor visibilidad
     console.log('\n\n=== ESCANEA ESTE CÓDIGO QR EN WHATSAPP ===\n');
     qrcode.generate(qr, { small: true });
     console.log('\n=========================================\n');
+    
+    // Actualizar el último QR para el endpoint web
+    lastQR = qr;
 });
 
 // Agregar más eventos para debug
@@ -128,6 +132,7 @@ client.on('loading_screen', (percent, message) => {
 
 client.on('authenticated', () => {
     console.log('🔐 AUTHENTICATED - Bot listo para recibir mensajes');
+    console.log('✅ Sesión de WhatsApp iniciada correctamente');
 });
 
 client.on('auth_failure', msg => {
