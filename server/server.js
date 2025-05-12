@@ -60,10 +60,10 @@ console.log('OpenAI API Key configurada:', process.env.OPENAI_API_KEY ? '✅ Sí
 // Configurar WhatsApp client con opciones específicas para Docker
 const client = new Client({
     authStrategy: new LocalAuth({
-        dataPath: './whatsapp-auth'
+        dataPath: '/usr/src/app/whatsapp-auth'
     }),
     puppeteer: {
-    //    executablePath: '/usr/bin/chromium',
+        executablePath: '/usr/bin/chromium',
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -71,6 +71,7 @@ const client = new Client({
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
+            '--single-process',
             '--disable-gpu'
         ],
         headless: 'new'

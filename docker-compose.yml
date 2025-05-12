@@ -1,20 +1,21 @@
+version: '3.8'
+
 services:
   whatsapp-bot:
     build: .
     container_name: whatsapp-bot
+    restart: unless-stopped
     ports:
       - "3000:3000"
     volumes:
-      - .:/usr/src/app
-      - /usr/src/app/node_modules
-      - ./.wwebjs_auth:/usr/src/app/.wwebjs_auth
-      - ./.wwebjs_cache:/usr/src/app/.wwebjs_cache
-    env_file:
-      - .env.local
+      - whatsapp_auth:/usr/src/app/.wwebjs_auth
+      - whatsapp_cache:/usr/src/app/.wwebjs_cache
+      - whatsapp_data:/usr/src/app/whatsapp-auth
     environment:
-      - NODE_ENV=development
-    restart: unless-stopped
-    tty: true
-    stdin_open: true
-    network_mode: "host"
-    user: "1000:1000"
+      - NODE_ENV=production
+      - TZ=America/Guatemala
+
+volumes:
+  whatsapp_auth:
+  whatsapp_cache:
+  whatsapp_data:
