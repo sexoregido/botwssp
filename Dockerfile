@@ -44,6 +44,12 @@ RUN apt-get update && apt-get install -y \
 # Crear directorio de la aplicación
 WORKDIR /usr/src/app
 
+# Crear usuario no root
+RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
+    && mkdir -p /home/pptruser/Downloads \
+    && chown -R pptruser:pptruser /home/pptruser \
+    && chown -R pptruser:pptruser /usr/src/app
+
 # Copiar package.json y package-lock.json
 COPY package*.json ./
 
@@ -56,16 +62,20 @@ RUN npm install
 # Copiar el código fuente
 COPY . .
 
+# Crear y configurar directorios necesarios
+RUN mkdir -p /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth \
+    && chown -R pptruser:pptruser /usr/src/app/.wwebjs_auth \
+    && chown -R pptruser:pptruser /usr/src/app/.wwebjs_cache \
+    && chown -R pptruser:pptruser /usr/src/app/whatsapp-auth \
+    && chmod -R 777 /usr/src/app/.wwebjs_auth \
+    && chmod -R 777 /usr/src/app/.wwebjs_cache \
+    && chmod -R 777 /usr/src/app/whatsapp-auth
+
 # Variables de entorno para Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
     NODE_TLS_REJECT_UNAUTHORIZED=0 \
-    DISPLAY=:99 \
-    PUPPETEER_ARGS="--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage"
-
-# Crear directorios necesarios y establecer permisos
-RUN mkdir -p /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth && \
-    chmod -R 777 /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth
+    DISPLAY=:99
 
 # Crear script de inicio
 RUN echo '#!/bin/bash\n\
@@ -73,6 +83,9 @@ Xvfb :99 -screen 0 1280x720x16 & \
 sleep 2\n\
 exec node server/server.js' > /usr/src/app/start.sh && \
     chmod +x /usr/src/app/start.sh
+
+# Cambiar al usuario no root
+USER pptruser
 
 # Exponer el puerto
 EXPOSE 3000

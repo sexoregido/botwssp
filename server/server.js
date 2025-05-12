@@ -72,15 +72,24 @@ const client = new Client({
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--disable-extensions',
+            '--disable-software-rasterizer',
+            '--disable-features=site-per-process',
+            '--ignore-certificate-errors'
         ],
-        headless: 'new'
+        headless: 'new',
+        timeout: 60000,
+        protocolTimeout: 60000
     },
     webVersionCache: {
         type: 'local',
         path: '/usr/src/app/.wwebjs_cache'
-    }
+    },
+    qrMaxRetries: 5,
+    authTimeoutMs: 60000,
+    takeoverOnConflict: true,
+    takeoverTimeoutMs: 60000
 });
 
 // Agregar más logs
@@ -141,9 +150,35 @@ client.on('message_create', (msg) => {
     });
 });
 
-// Evento para errores generales del cliente
-client.on('error', error => {
+// Agregar manejo de errores mejorado
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Promesa rechazada no manejada:', reason);
+    // No terminamos el proceso, solo registramos el error
+});
+
+// Función para reiniciar el cliente
+async function reiniciarCliente() {
+    console.log('🔄 Intentando reiniciar el cliente...');
+    try {
+        await client.destroy();
+        console.log('✅ Cliente destruido correctamente');
+        
+        // Esperar un momento antes de reiniciar
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        console.log('🔄 Iniciando nuevo cliente...');
+        await client.initialize();
+    } catch (error) {
+        console.error('❌ Error al reiniciar el cliente:', error);
+    }
+}
+
+// Modificar el evento de error para manejar reintentos
+client.on('error', async error => {
     console.error('❌ Error en el cliente:', error);
+    if (error.message.includes('Protocol error') || error.message.includes('Session closed')) {
+        await reiniciarCliente();
+    }
 });
 
 // Agregar esta función después de las configuraciones iniciales
@@ -600,10 +635,6 @@ client.on('message', async (message) => {
 // Manejadores de proceso para errores no manejados
 process.on('uncaughtException', (error) => {
     console.error('❌ Error no manejado:', error);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ Promesa rechazada no manejada:', reason);
 });
 
 // Iniciar el cliente de WhatsApp
