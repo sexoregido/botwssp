@@ -73,56 +73,31 @@ const client = new Client({
             '--no-first-run',
             '--no-zygote',
             '--single-process',
-            '--disable-gpu',
-            '--disable-extensions',
-            '--disable-software-rasterizer',
-            '--disable-translate',
-            '--disable-logging',
-            '--no-default-browser-check',
-            '--ignore-certificate-errors',
-            '--ignore-certificate-errors-spki-list',
-            '--ignore-ssl-errors',
-            '--use-gl=swiftshader',
-            '--window-size=1280,720',
-            '--remote-debugging-port=9222',
-            '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            '--disable-gpu'
         ],
-        headless: 'new',
-        timeout: 120000,
-        protocolTimeout: 120000,
-        defaultViewport: {
-            width: 1280,
-            height: 720
-        },
-        handleSIGINT: false,
-        handleSIGTERM: false,
-        handleSIGHUP: false
+        headless: 'new'
     },
     webVersionCache: {
         type: 'local',
         path: '/usr/src/app/.wwebjs_cache'
-    },
-    authTimeoutMs: 120000,
-    qrMaxRetries: 5,
-    restartOnAuthFail: true
+    }
 });
 
 // Agregar más logs
-console.log('Iniciando WhatsApp bot con configuración:', {
-    authPath: '/usr/src/app/whatsapp-auth',
-    executablePath: '/usr/bin/chromium',
-    cachePath: '/usr/src/app/.wwebjs_cache'
-});
+console.log('Iniciando WhatsApp bot...');
 
 // Modificar el evento QR para más información
 client.on('qr', (qr) => {
-    console.clear(); // Limpiar la consola para mejor visibilidad
-    console.log('\n\n=== ESCANEA ESTE CÓDIGO QR EN WHATSAPP ===\n');
-    qrcode.generate(qr, { small: true });
-    console.log('\n=========================================\n');
+    console.log('\n\n');
+    console.log('╔══════════════════════════════════════════════════════════════════════════╗');
+    console.log('║                   ESCANEA ESTE CÓDIGO QR EN WHATSAPP                     ║');
+    console.log('╚══════════════════════════════════════════════════════════════════════════╝\n');
     
-    // Actualizar el último QR para el endpoint web
-    lastQR = qr;
+    qrcode.generate(qr, { small: true });
+    
+    console.log('\n╔══════════════════════════════════════════════════════════════════════════╗');
+    console.log('║                        ESPERANDO ESCANEO DE QR...                         ║');
+    console.log('╚══════════════════════════════════════════════════════════════════════════╝\n');
 });
 
 // Agregar más eventos para debug
