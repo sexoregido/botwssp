@@ -8,9 +8,9 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - whatsapp_auth:/usr/src/app/.wwebjs_auth
-      - whatsapp_cache:/usr/src/app/.wwebjs_cache
-      - whatsapp_data:/usr/src/app/whatsapp-auth
+      - ./.wwebjs_auth:/usr/src/app/.wwebjs_auth
+      - ./.wwebjs_cache:/usr/src/app/.wwebjs_cache
+      - ./whatsapp-auth:/usr/src/app/whatsapp-auth
     environment:
       - NODE_ENV=production
       - TZ=America/Guatemala

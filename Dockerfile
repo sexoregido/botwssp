@@ -49,14 +49,10 @@ RUN npm install
 # Copiar el código fuente
 COPY . .
 
-# Crear directorios para la persistencia de datos y establecer permisos
-RUN mkdir -p /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth && \
+# Crear directorios y establecer permisos
+RUN mkdir -p .wwebjs_auth .wwebjs_cache whatsapp-auth && \
     chown -R node:node /usr/src/app && \
-    chmod -R 777 /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth && \
-    chmod 600 .env.local || true
-
-# Crear volúmenes para persistencia de datos
-VOLUME ["/usr/src/app/.wwebjs_auth", "/usr/src/app/.wwebjs_cache", "/usr/src/app/whatsapp-auth"]
+    chmod -R 777 .wwebjs_auth .wwebjs_cache whatsapp-auth
 
 # Variables de entorno para Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \

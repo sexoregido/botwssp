@@ -85,11 +85,8 @@ const client = new Client({
             '--use-gl=swiftshader'
         ],
         headless: 'new',
-        timeout: 0,
-        browserWSEndpoint: null,
-        userDataDir: '/usr/src/app/.wwebjs_auth'
+        timeout: 0
     },
-    webVersion: '2.2402.5',
     webVersionCache: {
         type: 'local',
         path: '/usr/src/app/.wwebjs_cache'
