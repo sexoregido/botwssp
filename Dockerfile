@@ -37,6 +37,8 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     xvfb \
     xauth \
+    wget \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Crear directorio de la aplicación
@@ -45,8 +47,8 @@ WORKDIR /usr/src/app
 # Copiar package.json y package-lock.json
 COPY package*.json ./
 
-# Copiar el archivo .env.local si existe
-COPY .env.local* ./
+# Copiar el archivo .env si existe
+COPY .env* ./
 
 # Instalar dependencias
 RUN npm install
@@ -58,14 +60,17 @@ COPY . .
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
     NODE_TLS_REJECT_UNAUTHORIZED=0 \
-    DISPLAY=:99
+    DISPLAY=:99 \
+    PUPPETEER_ARGS="--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage"
+
+# Crear directorios necesarios y establecer permisos
+RUN mkdir -p /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth && \
+    chmod -R 777 /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth
 
 # Crear script de inicio
 RUN echo '#!/bin/bash\n\
 Xvfb :99 -screen 0 1280x720x16 & \
-mkdir -p /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth\n\
-chmod -R 777 /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth\n\
-sleep 1\n\
+sleep 2\n\
 exec node server/server.js' > /usr/src/app/start.sh && \
     chmod +x /usr/src/app/start.sh
 

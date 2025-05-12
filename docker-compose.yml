@@ -9,18 +9,18 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - type: bind
-        source: ./.wwebjs_auth
-        target: /usr/src/app/.wwebjs_auth
-      - type: bind
-        source: ./.wwebjs_cache
-        target: /usr/src/app/.wwebjs_cache
-      - type: bind
-        source: ./whatsapp-auth
-        target: /usr/src/app/whatsapp-auth
+      - ./whatsapp-auth:/usr/src/app/whatsapp-auth
+      - ./.wwebjs_auth:/usr/src/app/.wwebjs_auth
+      - ./.wwebjs_cache:/usr/src/app/.wwebjs_cache
     environment:
       - NODE_ENV=production
       - TZ=America/Guatemala
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+    cap_add:
+      - SYS_ADMIN
+    shm_size: '2gb'
 
 volumes:
   whatsapp_auth:
