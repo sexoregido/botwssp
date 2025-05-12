@@ -8,9 +8,15 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./.wwebjs_auth:/usr/src/app/.wwebjs_auth
-      - ./.wwebjs_cache:/usr/src/app/.wwebjs_cache
-      - ./whatsapp-auth:/usr/src/app/whatsapp-auth
+      - type: bind
+        source: ./.wwebjs_auth
+        target: /usr/src/app/.wwebjs_auth
+      - type: bind
+        source: ./.wwebjs_cache
+        target: /usr/src/app/.wwebjs_cache
+      - type: bind
+        source: ./whatsapp-auth
+        target: /usr/src/app/whatsapp-auth
     environment:
       - NODE_ENV=production
       - TZ=America/Guatemala
