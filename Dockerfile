@@ -32,6 +32,11 @@ RUN apt-get update && apt-get install -y \
     libxrender1 \
     libxss1 \
     libxtst6 \
+    libxshmfence1 \
+    libglu1 \
+    fonts-liberation \
+    xvfb \
+    xauth \
     && rm -rf /var/lib/apt/lists/*
 
 # Crear directorio de la aplicación
@@ -52,12 +57,15 @@ COPY . .
 # Variables de entorno para Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    NODE_TLS_REJECT_UNAUTHORIZED=0
+    NODE_TLS_REJECT_UNAUTHORIZED=0 \
+    DISPLAY=:99
 
 # Crear script de inicio
 RUN echo '#!/bin/bash\n\
+Xvfb :99 -screen 0 1280x720x16 & \
 mkdir -p /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth\n\
 chmod -R 777 /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth\n\
+sleep 1\n\
 exec node server/server.js' > /usr/src/app/start.sh && \
     chmod +x /usr/src/app/start.sh
 

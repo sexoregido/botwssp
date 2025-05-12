@@ -82,19 +82,37 @@ const client = new Client({
             '--ignore-certificate-errors',
             '--ignore-certificate-errors-spki-list',
             '--ignore-ssl-errors',
-            '--use-gl=swiftshader'
+            '--use-gl=swiftshader',
+            '--window-size=1280,720',
+            '--remote-debugging-port=9222',
+            '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ],
         headless: 'new',
-        timeout: 0
+        timeout: 120000,
+        protocolTimeout: 120000,
+        defaultViewport: {
+            width: 1280,
+            height: 720
+        },
+        handleSIGINT: false,
+        handleSIGTERM: false,
+        handleSIGHUP: false
     },
     webVersionCache: {
         type: 'local',
         path: '/usr/src/app/.wwebjs_cache'
-    }
+    },
+    authTimeoutMs: 120000,
+    qrMaxRetries: 5,
+    restartOnAuthFail: true
 });
 
 // Agregar más logs
-console.log('Iniciando WhatsApp bot...');
+console.log('Iniciando WhatsApp bot con configuración:', {
+    authPath: '/usr/src/app/whatsapp-auth',
+    executablePath: '/usr/bin/chromium',
+    cachePath: '/usr/src/app/.wwebjs_cache'
+});
 
 // Modificar el evento QR para más información
 client.on('qr', (qr) => {
