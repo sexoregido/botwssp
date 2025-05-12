@@ -37,36 +37,32 @@ RUN apt-get update && apt-get install -y \
 # Crear directorio de la aplicación
 WORKDIR /usr/src/app
 
-# Crear usuario con UID específico
-RUN groupadd -r whatsapp && \
-    useradd -r -g whatsapp -G audio,video whatsapp && \
-    mkdir -p .wwebjs_auth .wwebjs_cache whatsapp-auth && \
-    chown -R whatsapp:whatsapp /usr/src/app
-
 # Copiar package.json y package-lock.json
-COPY --chown=whatsapp:whatsapp package*.json ./
+COPY package*.json ./
 
 # Copiar el archivo .env.local si existe
-COPY --chown=whatsapp:whatsapp .env.local* ./
+COPY .env.local* ./
 
 # Instalar dependencias
 RUN npm install
 
 # Copiar el código fuente
-COPY --chown=whatsapp:whatsapp . .
-
-# Establecer permisos
-RUN chmod -R 777 .wwebjs_auth .wwebjs_cache whatsapp-auth
+COPY . .
 
 # Variables de entorno para Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
     NODE_TLS_REJECT_UNAUTHORIZED=0
 
-USER whatsapp
+# Crear script de inicio
+RUN echo '#!/bin/bash\n\
+mkdir -p /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth\n\
+chmod -R 777 /usr/src/app/.wwebjs_auth /usr/src/app/.wwebjs_cache /usr/src/app/whatsapp-auth\n\
+exec node server/server.js' > /usr/src/app/start.sh && \
+    chmod +x /usr/src/app/start.sh
 
 # Exponer el puerto
 EXPOSE 3000
 
 # Ejecutar con la salida sin buffer
-CMD ["node", "server/server.js"]
+CMD ["/usr/src/app/start.sh"]

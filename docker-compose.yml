@@ -5,6 +5,7 @@ services:
     build: .
     container_name: whatsapp-bot
     restart: unless-stopped
+    user: root
     ports:
       - "3000:3000"
     volumes:
